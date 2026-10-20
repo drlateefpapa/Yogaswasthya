@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Subtle inner halo inside safe zone -->
+    <path
+        android:fillColor="#26D4A359"
+        android:pathData="M54,26A28,28 0 1,1 54,82A28,28 0 1,1 54,26Z" />
+    <!-- Center Lotus Petal & Spine Axis -->
+    <path
+        android:fillColor="#FFF5EFE6"
+        android:pathData="M54,28C47,38 45,49 54,62C63,49 61,38 54,28Z" />
+    <!-- Left Lotus Petal -->
+    <path
+        android:fillColor="#FFD4A359"
+        android:pathData="M51,61C38,57 32,46 35,36C43,40 48,49 51,61Z" />
+    <!-- Right Lotus Petal -->
+    <path
+        android:fillColor="#FFD4A359"
+        android:pathData="M57,61C60,49 65,40 73,36C76,46 70,57 57,61Z" />
+    <!-- Base Healing Hands / Grounding Arc -->
+    <path
+        android:fillColor="#FFF5EFE6"
+        android:pathData="M31,64C39,72 69,72 77,64C72,75 63,79 54,79C45,79 36,75 31,64Z" />
+    <!-- Prana Crown Dot -->
+    <path
+        android:fillColor="#FFD4A359"
+        android:pathData="M54,21A3.5,3.5 0 1,1 54,28A3.5,3.5 0 1,1 54,21Z" />
+</vector>

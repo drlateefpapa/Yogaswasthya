@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "PatientProfile": {
+      "title": "PatientProfile",
+      "description": "Stores a patient's personal details (name, age, height, weight, known diseases/medications, email, phone), primary therapeutic condition, active conditions, baseline scores, and Ayurvedic dietary preference.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID owning this profile."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Patient full name (1 to 80 characters)."
+        },
+        "age": {
+          "type": "integer",
+          "description": "Patient age in years (1 to 120)."
+        },
+        "heightCm": {
+          "type": "integer",
+          "description": "Patient height in centimeters (50 to 260)."
+        },
+        "weightKg": {
+          "type": "integer",
+          "description": "Patient weight in kilograms (15 to 300)."
+        },
+        "knownDiseasesOrMedications": {
+          "type": "string",
+          "description": "Known medical conditions, comorbidities, or current medications (0 to 300 characters)."
+        },
+        "emailId": {
+          "type": "string",
+          "description": "Patient email address / mail ID (0 to 120 characters)."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Patient contact phone number (0 to 30 characters)."
+        },
+        "primaryConditionId": {
+          "type": "string",
+          "description": "Primary disease/condition ID targeted for recovery."
+        },
+        "activeConditionIds": {
+          "type": "array",
+          "description": "List of condition IDs tracked by the patient (max 10)."
+        },
+        "baselinePainScore": {
+          "type": "integer",
+          "description": "Initial baseline pain level from 0 to 10."
+        },
+        "baselineMobilityScore": {
+          "type": "integer",
+          "description": "Initial baseline mobility level from 1 to 10."
+        },
+        "baselineStressScore": {
+          "type": "integer",
+          "description": "Initial baseline stress/anxiety level from 0 to 10."
+        },
+        "dietaryPreference": {
+          "type": "string",
+          "description": "Selected Ayurvedic dietary regimen."
+        },
+        "dailyGoalMinutes": {
+          "type": "integer",
+          "description": "Daily therapeutic practice target in minutes (5 to 180)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "primaryConditionId",
+        "activeConditionIds",
+        "baselinePainScore",
+        "baselineMobilityScore",
+        "baselineStressScore",
+        "dietaryPreference",
+        "dailyGoalMinutes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RecoveryLog": {
+      "title": "RecoveryLog",
+      "description": "Daily patient recovery check-in tracking pain, stiffness, stress, mobility, sleep, completed yoga therapy minutes, and dietary adherence.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID owning this recovery log."
+        },
+        "conditionId": {
+          "type": "string",
+          "description": "Condition ID evaluated in this daily log."
+        },
+        "dateLabel": {
+          "type": "string",
+          "description": "ISO date string or human-readable date label (1 to 30 chars)."
+        },
+        "painLevel": {
+          "type": "integer",
+          "description": "Symptom pain rating from 0 (none) to 10 (severe)."
+        },
+        "stiffnessLevel": {
+          "type": "integer",
+          "description": "Joint/spine stiffness rating from 0 (none) to 10 (severe)."
+        },
+        "stressLevel": {
+          "type": "integer",
+          "description": "Mental stress/anxiety level from 0 (calm) to 10 (acute)."
+        },
+        "mobilityScore": {
+          "type": "integer",
+          "description": "Functional range-of-motion score from 1 (restricted) to 10 (full)."
+        },
+        "sleepQuality": {
+          "type": "integer",
+          "description": "Restorative sleep quality from 1 to 10."
+        },
+        "asanaMinutes": {
+          "type": "integer",
+          "description": "Minutes of therapeutic Asana practiced today (0 to 240)."
+        },
+        "pranayamaMinutes": {
+          "type": "integer",
+          "description": "Minutes of Pranayama breathwork practiced today (0 to 240)."
+        },
+        "dhyanaMinutes": {
+          "type": "integer",
+          "description": "Minutes of Dhyana meditation practiced today (0 to 240)."
+        },
+        "completedPractices": {
+          "type": "array",
+          "description": "List of completed practice IDs or names (max 30)."
+        },
+        "dietAdherenceScore": {
+          "type": "integer",
+          "description": "Percentage adherence to disease-specific diet guidelines (0 to 100)."
+        },
+        "waterIntakeGlasses": {
+          "type": "integer",
+          "description": "Hydration intake in glasses of warm/herbal water (0 to 25)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional patient reflections or symptom triggers (0 to 500 chars)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "conditionId",
+        "dateLabel",
+        "painLevel",
+        "stiffnessLevel",
+        "stressLevel",
+        "mobilityScore",
+        "sleepQuality",
+        "asanaMinutes",
+        "pranayamaMinutes",
+        "dhyanaMinutes",
+        "completedPractices",
+        "dietAdherenceScore",
+        "waterIntakeGlasses",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PracticeSession": {
+      "title": "PracticeSession",
+      "description": "Individual guided Asana, Pranayama, or Dhyana therapy session completed by the patient.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID."
+        },
+        "conditionId": {
+          "type": "string",
+          "description": "Condition ID targeted by the session."
+        },
+        "practiceId": {
+          "type": "string",
+          "description": "Unique identifier of the Asana, Pranayama, or Dhyana."
+        },
+        "practiceTitle": {
+          "type": "string",
+          "description": "Title of the therapeutic practice (1 to 100 chars)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Asana", "Pranayama", "Dhyana"],
+          "description": "Pillar of yoga therapy."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "Session duration in minutes (1 to 180)."
+        },
+        "reliefRating": {
+          "type": "integer",
+          "description": "Post-practice symptom relief rating (1 to 5)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session completion timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "conditionId",
+        "practiceId",
+        "practiceTitle",
+        "category",
+        "durationMinutes",
+        "reliefRating",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/PatientProfile" },
+      "description": "Patient profile, anthropometrics, medical history, and baseline condition configuration."
+    },
+    "/users/{userId}/recovery_logs/{logId}": {
+      "schema": { "$ref": "#/entities/RecoveryLog" },
+      "description": "Daily patient recovery and symptom progress logs."
+    },
+    "/users/{userId}/practice_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/PracticeSession" },
+      "description": "Completed guided Asana, Pranayama, and Dhyana sessions."
+    }
+  }
+}

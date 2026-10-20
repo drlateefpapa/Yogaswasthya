@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Soft outer lotus halo -->
+    <path
+        android:fillColor="#33F3C878"
+        android:pathData="M48,10 A38,38 0 1,1 47.9,10 Z" />
+    <!-- Sacred lotus petals behind practitioner -->
+    <path
+        android:fillColor="#44FBF8F3"
+        android:pathData="M48,18 C56,30 60,42 48,54 C36,42 40,30 48,18 Z" />
+    <path
+        android:fillColor="#33FBF8F3"
+        android:pathData="M26,30 C38,34 46,44 46,56 C32,52 26,42 26,30 Z" />
+    <path
+        android:fillColor="#33FBF8F3"
+        android:pathData="M70,30 C58,34 50,44 50,56 C64,52 70,42 70,30 Z" />
+    <!-- Practitioner head -->
+    <path
+        android:fillColor="#FFFBF8F3"
+        android:pathData="M48,28 A7,7 0 1,1 47.9,28 Z" />
+    <!-- Torso & aligned spine -->
+    <path
+        android:fillColor="#FFFBF8F3"
+        android:pathData="M42,38 C42,36 54,36 54,38 L56,58 C56,60 40,60 40,58 Z" />
+    <!-- Arms in mudra / open chest alignment -->
+    <path
+        android:strokeColor="#FFFBF8F3"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M42,40 L28,54 L34,62" />
+    <path
+        android:strokeColor="#FFFBF8F3"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M54,40 L68,54 L62,62" />
+    <!-- Seated sukhasana / grounded base -->
+    <path
+        android:strokeColor="#FFF3C878"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M30,66 C38,60 58,60 66,66 C58,72 38,72 30,66 Z" />
+</vector>

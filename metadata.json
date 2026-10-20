@@ -1,0 +1,6 @@
+{
+  "name": "YogaSwasthya",
+  "description": "Disease-oriented yoga therapy, physiotherapy-informed movement, Pranayama, Dhyana, Indian dietary guidance, safety triage, clinician dashboard, and PDF recovery reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

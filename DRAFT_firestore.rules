@@ -1,0 +1,198 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. Validation Blueprint: PatientProfile
+    function isValidPatientProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.primaryConditionId is string && data.primaryConditionId.size() >= 1 && data.primaryConditionId.size() <= 64 &&
+             data.activeConditionIds is list && data.activeConditionIds.size() <= 10 &&
+             (data.activeConditionIds.size() == 0 || (data.activeConditionIds[0] is string && data.activeConditionIds[0].size() <= 64)) &&
+             data.baselinePainScore is int && data.baselinePainScore >= 0 && data.baselinePainScore <= 10 &&
+             data.baselineMobilityScore is int && data.baselineMobilityScore >= 1 && data.baselineMobilityScore <= 10 &&
+             data.baselineStressScore is int && data.baselineStressScore >= 0 && data.baselineStressScore <= 10 &&
+             data.dietaryPreference is string && data.dietaryPreference.size() >= 1 && data.dietaryPreference.size() <= 50 &&
+             data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 5 && data.dailyGoalMinutes <= 180 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 2. Validation Blueprint: RecoveryLog
+    function isValidRecoveryLog(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.conditionId is string && data.conditionId.size() >= 1 && data.conditionId.size() <= 64 &&
+             data.dateLabel is string && data.dateLabel.size() >= 1 && data.dateLabel.size() <= 30 &&
+             data.painLevel is int && data.painLevel >= 0 && data.painLevel <= 10 &&
+             data.stiffnessLevel is int && data.stiffnessLevel >= 0 && data.stiffnessLevel <= 10 &&
+             data.stressLevel is int && data.stressLevel >= 0 && data.stressLevel <= 10 &&
+             data.mobilityScore is int && data.mobilityScore >= 1 && data.mobilityScore <= 10 &&
+             data.sleepQuality is int && data.sleepQuality >= 1 && data.sleepQuality <= 10 &&
+             data.asanaMinutes is int && data.asanaMinutes >= 0 && data.asanaMinutes <= 240 &&
+             data.pranayamaMinutes is int && data.pranayamaMinutes >= 0 && data.pranayamaMinutes <= 240 &&
+             data.dhyanaMinutes is int && data.dhyanaMinutes >= 0 && data.dhyanaMinutes <= 240 &&
+             data.completedPractices is list && data.completedPractices.size() <= 30 &&
+             (data.completedPractices.size() == 0 || (data.completedPractices[0] is string && data.completedPractices[0].size() <= 100)) &&
+             data.dietAdherenceScore is int && data.dietAdherenceScore >= 0 && data.dietAdherenceScore <= 100 &&
+             data.waterIntakeGlasses is int && data.waterIntakeGlasses >= 0 && data.waterIntakeGlasses <= 25 &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 3. Validation Blueprint: PracticeSession
+    function isValidPracticeSession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.conditionId is string && data.conditionId.size() >= 1 && data.conditionId.size() <= 64 &&
+             data.practiceId is string && data.practiceId.size() >= 1 && data.practiceId.size() <= 64 &&
+             data.practiceTitle is string && data.practiceTitle.size() >= 1 && data.practiceTitle.size() <= 100 &&
+             data.category is string && data.category.size() <= 20 && data.category in ['Asana', 'Pranayama', 'Dhyana'] &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 180 &&
+             data.reliefRating is int && data.reliefRating >= 1 && data.reliefRating <= 5 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Patient Profile Rules
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
+                    (resource == null || existing().userId == request.auth.uid);
+      allow list: if isSignedIn() && request.auth.uid == userId && existing().userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidPatientProfile(incoming()) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'primaryConditionId', 'activeConditionIds',
+                         'baselinePainScore', 'baselineMobilityScore', 'baselineStressScore',
+                         'dietaryPreference', 'dailyGoalMinutes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'primaryConditionId', 'activeConditionIds',
+                         'baselinePainScore', 'baselineMobilityScore', 'baselineStressScore',
+                         'dietaryPreference', 'dailyGoalMinutes', 'createdAt', 'updatedAt'
+                       ]);
+
+      allow update: if isSignedIn() &&
+                       isValidPatientProfile(incoming()) &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'primaryConditionId', 'activeConditionIds',
+                         'baselinePainScore', 'baselineMobilityScore', 'baselineStressScore',
+                         'dietaryPreference', 'dailyGoalMinutes', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      // Daily Recovery Logs Subcollection
+      match /recovery_logs/{logId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(logId) &&
+                      request.auth.uid == userId &&
+                      (resource == null || existing().userId == request.auth.uid);
+        allow list: if isSignedIn() && request.auth.uid == userId &&
+                       existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(logId) &&
+                         request.auth.uid == userId &&
+                         isValidRecoveryLog(incoming()) &&
+                         incoming().keys().hasAll([
+                           'userId', 'conditionId', 'dateLabel', 'painLevel', 'stiffnessLevel',
+                           'stressLevel', 'mobilityScore', 'sleepQuality', 'asanaMinutes',
+                           'pranayamaMinutes', 'dhyanaMinutes', 'completedPractices',
+                           'dietAdherenceScore', 'waterIntakeGlasses', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'conditionId', 'dateLabel', 'painLevel', 'stiffnessLevel',
+                           'stressLevel', 'mobilityScore', 'sleepQuality', 'asanaMinutes',
+                           'pranayamaMinutes', 'dhyanaMinutes', 'completedPractices',
+                           'dietAdherenceScore', 'waterIntakeGlasses', 'notes', 'createdAt', 'updatedAt'
+                         ]);
+
+        allow update: if isSignedIn() &&
+                         isValidRecoveryLog(incoming()) &&
+                         isValidId(userId) &&
+                         isValidId(logId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'conditionId', 'dateLabel', 'painLevel', 'stiffnessLevel',
+                           'stressLevel', 'mobilityScore', 'sleepQuality', 'asanaMinutes',
+                           'pranayamaMinutes', 'dhyanaMinutes', 'completedPractices',
+                           'dietAdherenceScore', 'waterIntakeGlasses', 'notes', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(logId) &&
+                         request.auth.uid == userId && existing().userId == request.auth.uid;
+      }
+
+      // Completed Guided Practice Sessions Subcollection
+      match /practice_sessions/{sessionId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(sessionId) &&
+                      request.auth.uid == userId &&
+                      (resource == null || existing().userId == request.auth.uid);
+        allow list: if isSignedIn() && request.auth.uid == userId &&
+                       existing().userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(sessionId) &&
+                         request.auth.uid == userId &&
+                         isValidPracticeSession(incoming()) &&
+                         incoming().keys().hasAll([
+                           'userId', 'conditionId', 'practiceId', 'practiceTitle',
+                           'category', 'durationMinutes', 'reliefRating', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'conditionId', 'practiceId', 'practiceTitle',
+                           'category', 'durationMinutes', 'reliefRating', 'createdAt', 'updatedAt'
+                         ]);
+
+        allow update: if isSignedIn() &&
+                         isValidPracticeSession(incoming()) &&
+                         isValidId(userId) &&
+                         isValidId(sessionId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'reliefRating', 'durationMinutes', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(sessionId) &&
+                         request.auth.uid == userId && existing().userId == request.auth.uid;
+      }
+    }
+  }
+}
