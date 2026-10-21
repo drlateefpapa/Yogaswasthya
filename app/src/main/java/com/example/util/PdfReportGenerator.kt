@@ -1,6 +1,7 @@
 package com.example.util
 
 import android.content.ClipData
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
@@ -8,6 +9,9 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.example.data.catalog.DiseaseCatalog
 import com.example.data.model.OnboardingProfileData
@@ -644,9 +648,32 @@ object PdfReportGenerator {
                 )
             }
 
+            saveCopyToPublicDownloads(context, pdfFile)
+
             Result.success(summary.copy(filePath = pdfFile.absolutePath))
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun saveCopyToPublicDownloads(context: Context, sourcePdf: File) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && sourcePdf.exists()) {
+                val resolver = context.contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "YogaSwasthya_Recovery_Report.pdf")
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outStream ->
+                        sourcePdf.inputStream().use { inStream ->
+                            inStream.copyTo(outStream)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -838,4 +865,107 @@ object PdfReportGenerator {
         } catch (_: Exception) {
         }
     }
+
+    /**
+     * Exports the patient's complete personal/medical profile and recovery check-in logs
+     * to a CSV file in app storage + public Android Downloads folder, and optionally shares it.
+     */
+    fun exportPatientDataCsv(
+        context: Context,
+        profile: PatientProfile?,
+        conditionId: String,
+        logs: List<RecoveryLog>,
+        sessions: List<PracticeSession>,
+        onboardingData: OnboardingProfileData,
+        shareFile: Boolean = true
+    ): Result<String> {
+        return try {
+            val condition = DiseaseCatalog.getConditionById(conditionId)
+            val fullName = profile?.displayName?.ifBlank { onboardingData.fullName } ?: onboardingData.fullName
+            val age = profile?.age?.takeIf { it > 0 } ?: onboardingData.age
+            val heightCm = profile?.heightCm?.takeIf { it > 0 } ?: onboardingData.heightCm
+            val weightKg = profile?.weightKg?.takeIf { it > 0 } ?: onboardingData.weightKg
+            val bmi = String.format(Locale.US, "%.1f", com.example.data.model.calculateBmi(heightCm, weightKg))
+            val knownDiseases = profile?.knownDiseasesOrMedications?.ifBlank { onboardingData.knownDiseasesOrMedications }
+                ?: onboardingData.knownDiseasesOrMedications
+            val email = profile?.emailId?.ifBlank { onboardingData.emailId } ?: onboardingData.emailId
+            val phone = profile?.phoneNumber?.ifBlank { onboardingData.phoneNumber } ?: onboardingData.phoneNumber
+
+            val csvContent = buildString {
+                appendLine("SECTION,FIELD,VALUE")
+                appendLine("Patient Profile,Full Name,\"${fullName.replace("\"", "'")}\"")
+                appendLine("Patient Profile,Age (Years),$age")
+                appendLine("Patient Profile,Height (cm),$heightCm")
+                appendLine("Patient Profile,Weight (kg),$weightKg")
+                appendLine("Patient Profile,BMI (kg/m2),$bmi")
+                appendLine("Patient Profile,Known Disease or Medication,\"${knownDiseases.replace("\"", "'")}\"")
+                appendLine("Patient Profile,Mail ID (Email),\"${email.replace("\"", "'")}\"")
+                appendLine("Patient Profile,Phone No.,\"${phone.replace("\"", "'")}\"")
+                appendLine("Patient Profile,Primary Condition,\"${condition.name}\"")
+                appendLine()
+                appendLine("DATE,PAIN (0-10),STIFFNESS (0-10),STRESS (0-10),MOBILITY (1-10),SLEEP (1-10),ASANA MIN,PRANAYAMA MIN,DHYANA MIN,DIET %,WATER GLASSES,NOTES")
+                logs.forEach { log ->
+                    val safeNotes = (log.notes ?: "").replace("\"", "'")
+                    appendLine(
+                        "${log.dateLabel},${log.painLevel},${log.stiffnessLevel},${log.stressLevel}," +
+                            "${log.mobilityScore},${log.sleepQuality},${log.asanaMinutes}," +
+                            "${log.pranayamaMinutes},${log.dhyanaMinutes},${log.dietAdherenceScore}," +
+                            "${log.waterIntakeGlasses},\"$safeNotes\""
+                    )
+                }
+                if (sessions.isNotEmpty()) {
+                    appendLine()
+                    appendLine("SESSION TITLE,CATEGORY,DURATION MIN,RELIEF RATING (1-5)")
+                    sessions.forEach { s ->
+                        appendLine("\"${s.practiceTitle.replace("\"", "'")}\",${s.category},${s.durationMinutes},${s.reliefRating}")
+                    }
+                }
+            }
+
+            val reportsDir = File(context.cacheDir, "reports").apply { mkdirs() }
+            val csvFile = File(reportsDir, "YogaSwasthya_Patient_Export.csv")
+            csvFile.writeText(csvContent, Charsets.UTF_8)
+
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val resolver = context.contentResolver
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, "YogaSwasthya_Patient_Export.csv")
+                        put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    }
+                    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    if (uri != null) {
+                        resolver.openOutputStream(uri)?.use { out ->
+                            out.write(csvContent.toByteArray(Charsets.UTF_8))
+                        }
+                    }
+                }
+            }
+
+            if (shareFile) {
+                runCatching {
+                    val authority = "${context.packageName}.fileprovider"
+                    val csvUri = FileProvider.getUriForFile(context, authority, csvFile)
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/csv"
+                        putExtra(Intent.EXTRA_SUBJECT, "YogaSwasthya Patient & Recovery Data Export — $fullName")
+                        putExtra(Intent.EXTRA_TEXT, csvContent)
+                        putExtra(Intent.EXTRA_STREAM, csvUri)
+                        clipData = ClipData.newRawUri("YogaSwasthya_Patient_Export.csv", csvUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(
+                        Intent.createChooser(sendIntent, "Export / Download Patient Health Record (CSV)")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+
+            Result.success(csvFile.absolutePath)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+

@@ -870,11 +870,34 @@ class YogaTherapyViewModel(
                     )
                     _statusBannerMessage.value = "Weekly PDF Recovery Report exported & ready to share with clinician"
                 } else {
-                    _statusBannerMessage.value = "Weekly PDF Recovery Report exported: YogaSwasthya_Recovery_Report.pdf"
+                    _statusBannerMessage.value = "Weekly PDF Recovery Report saved to Downloads: YogaSwasthya_Recovery_Report.pdf"
                 }
             }.onFailure { err ->
                 _statusBannerMessage.value = err.localizedMessage ?: "Failed to export weekly PDF report"
             }
+        }
+    }
+
+    fun exportPatientDataCsv(context: Context, shareFile: Boolean = true) {
+        val currentProfile = (profileState.value as? UiState.Success)?.data
+        val currentLogs = (recoveryLogsState.value as? UiState.Success)?.data ?: emptyList()
+        val currentSessions = (practiceSessionsState.value as? UiState.Success)?.data ?: emptyList()
+        val currentConditionId = _selectedConditionId.value
+        val currentOnboarding = _onboardingData.value
+
+        val res = com.example.util.PdfReportGenerator.exportPatientDataCsv(
+            context = context,
+            profile = currentProfile,
+            conditionId = currentConditionId,
+            logs = currentLogs,
+            sessions = currentSessions,
+            onboardingData = currentOnboarding,
+            shareFile = shareFile
+        )
+        res.onSuccess {
+            _statusBannerMessage.value = "Exported patient & recovery data to Downloads: YogaSwasthya_Patient_Export.csv"
+        }.onFailure { err ->
+            _statusBannerMessage.value = err.localizedMessage ?: "Failed to export CSV data"
         }
     }
 
@@ -883,3 +906,4 @@ class YogaTherapyViewModel(
         const val STOP_TIMEOUT_MILLIS = 5000L
     }
 }
+

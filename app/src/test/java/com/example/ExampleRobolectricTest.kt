@@ -225,5 +225,17 @@ class ExampleRobolectricTest {
             sessions = sampleSessions
         )
         assertTrue("Sharing weekly PDF report with clinician should succeed", shareResult.isSuccess)
+
+        val csvExportResult = PdfReportGenerator.exportPatientDataCsv(
+            context = context,
+            profile = sampleProfile,
+            conditionId = "osteoarthritis",
+            logs = sampleLogs,
+            sessions = sampleSessions,
+            onboardingData = viewModel.onboardingData.value,
+            shareFile = false
+        )
+        assertTrue("Exporting patient CSV record should succeed", csvExportResult.isSuccess)
     }
 }
+

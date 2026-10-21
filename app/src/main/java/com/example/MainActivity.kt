@@ -26,14 +26,19 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MedicalInformation
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.MedicalInformation
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.SelfImprovement
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,11 +48,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -268,6 +275,7 @@ fun YogaSwasthyaMainScreen(
 
     var currentDestination by rememberSaveable { mutableStateOf(MainDestination.HOME) }
     var showDietSubScreen by rememberSaveable { mutableStateOf(false) }
+    var showSettingsExportModal by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -374,6 +382,16 @@ fun YogaSwasthyaMainScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { showSettingsExportModal = true },
+                            modifier = Modifier.testTag("top_bar_settings_export_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings, Download & Export",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                         IconButton(
@@ -584,6 +602,12 @@ fun YogaSwasthyaMainScreen(
                                                 context = context,
                                                 shareWithClinician = shareWithClinician
                                             )
+                                        },
+                                        onExportPatientCsv = {
+                                            viewModel.exportPatientDataCsv(
+                                                context = context,
+                                                shareFile = true
+                                            )
                                         }
                                     )
                                 }
@@ -593,6 +617,112 @@ fun YogaSwasthyaMainScreen(
                 }
             }
         }
+    }
+
+    if (showSettingsExportModal) {
+        AlertDialog(
+            onDismissRequest = { showSettingsExportModal = false },
+            title = {
+                Text(
+                    text = "Settings, Download & Export Options",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "1. Export & Download Reports (Inside App):",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Button(
+                        onClick = {
+                            showSettingsExportModal = false
+                            viewModel.exportWeeklyRecoveryPdf(
+                                context = context,
+                                shareWithClinician = false
+                            )
+                        },
+                        modifier = Modifier
+                            .padding(vertical = 2.dp)
+                            .testTag("modal_download_pdf_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Download Weekly PDF to Downloads")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showSettingsExportModal = false
+                            viewModel.exportWeeklyRecoveryPdf(
+                                context = context,
+                                shareWithClinician = true
+                            )
+                        },
+                        modifier = Modifier
+                            .padding(vertical = 2.dp)
+                            .testTag("modal_share_pdf_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Share PDF with Clinician / WhatsApp")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showSettingsExportModal = false
+                            viewModel.exportPatientDataCsv(
+                                context = context,
+                                shareFile = true
+                            )
+                        },
+                        modifier = Modifier
+                            .padding(vertical = 2.dp)
+                            .testTag("modal_export_csv_button")
+                    ) {
+                        Text("Export Complete Patient Record (CSV)")
+                    }
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Text(
+                        text = "2. How to Download APK / Export ZIP in AI Studio:",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = "• On mobile browsers, Google AI Studio hides the top-right Export/APK toolbar buttons.\n" +
+                            "• In Android Chrome, tap the ⋮ (3-dot browser menu) and enable 'Desktop site' (or open AI Studio on a laptop/PC).\n" +
+                            "• Then use the top-right AI Studio header toolbar (outside the phone preview) to Download APK or Export ZIP.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSettingsExportModal = false
+                        showDietSubScreen = false
+                        currentDestination = MainDestination.PROFILE
+                    }
+                ) {
+                    Text("Open Full Profile & Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSettingsExportModal = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 
     activeGuidedPractice?.let { practice ->

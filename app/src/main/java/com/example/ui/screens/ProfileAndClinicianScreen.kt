@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.WarningAmber
@@ -80,11 +81,13 @@ fun ProfileAndClinicianScreen(
     onSignOut: () -> Unit,
     onReopenOnboarding: () -> Unit = {},
     onExportWeeklyPdf: ((shareWithClinician: Boolean) -> Unit)? = null,
+    onExportPatientCsv: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var clinicianModeUnlocked by rememberSaveable { mutableStateOf(false) }
     var showTriageModal by rememberSaveable { mutableStateOf(false) }
     var showDeleteConfirmModal by rememberSaveable { mutableStateOf(false) }
+    var showMobileDownloadGuideModal by rememberSaveable { mutableStateOf(false) }
     var remindersEnabled by rememberSaveable { mutableStateOf(true) }
     var largeTextAccessibility by rememberSaveable { mutableStateOf(false) }
     var editableClinicianNotes by remember(onboardingData.clinicianNotes) {
@@ -128,6 +131,115 @@ fun ProfileAndClinicianScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Top Card: Settings, Download & Export Options
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_download_export_card"),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Settings: Download & Export Center",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Download PDF reports, export CSV records & Android APK guide",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onExportWeeklyPdf?.invoke(false) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_download_pdf_button"),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PictureAsPdf,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Download PDF", fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { onExportWeeklyPdf?.invoke(true) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_share_pdf_button"),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Share PDF")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { onExportPatientCsv?.invoke() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_export_csv_button"),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Export Data (CSV)")
+                        }
+
+                        OutlinedButton(
+                            onClick = { showMobileDownloadGuideModal = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_mobile_apk_guide_button"),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Android APK Guide")
+                        }
+                    }
+                }
+            }
+        }
+
         // 0. Patient Personal, Anthropometric & Medical Record Card
         item {
             Card(
@@ -789,6 +901,43 @@ fun ProfileAndClinicianScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmModal = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showMobileDownloadGuideModal) {
+        AlertDialog(
+            onDismissRequest = { showMobileDownloadGuideModal = false },
+            title = { Text("How to Download APK / Export Project in AI Studio") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Why Download/Export may be hidden on Mobile Browsers:",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "When viewing Google AI Studio on a phone browser, the top-right AI Studio toolbar (which contains the APK Download, ZIP Export, and GitHub buttons) is collapsed on narrow mobile screens.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Step-by-Step Solution:",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "1. In Android Chrome, tap the ⋮ (3-dot menu) at the top-right of your browser and check 'Desktop site' (or open this AI Studio link on a laptop/PC).\n" +
+                            "2. Look at the Google AI Studio top-right header bar (outside the phone emulator preview).\n" +
+                            "3. Tap the Download / Export icon or Settings (⚙️) menu in the AI Studio header to select 'Download APK' or 'Export ZIP'.\n" +
+                            "4. Open the downloaded APK on your Android phone to install YogaSwasthya natively.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showMobileDownloadGuideModal = false }) {
+                    Text("Got It")
                 }
             }
         )
