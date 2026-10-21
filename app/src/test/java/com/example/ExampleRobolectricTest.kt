@@ -12,8 +12,6 @@ import com.example.ui.screens.deriveAgeGroupLabel
 import com.example.ui.viewmodel.AuthUiState
 import com.example.ui.viewmodel.YogaTherapyViewModel
 import com.example.util.PdfReportGenerator
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,9 +27,6 @@ class ExampleRobolectricTest {
     @Test
     fun `validate YogaSwasthya ViewModel auth states, onboarding integration, 5-tab navigation, and 18 clinical programs`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        if (FirebaseApp.getApps(context).isEmpty()) {
-            FirebaseApp.initializeApp(context)
-        }
         val appName = context.getString(R.string.app_name)
         assertEquals("YogaSwasthya", appName)
 
@@ -43,9 +38,8 @@ class ExampleRobolectricTest {
         )
 
         // Verify ViewModel unauthenticated sign-in / sign-up mode switching and onboarding flow state
-        val db = FirebaseFirestore.getInstance(context.getString(R.string.firestore_database_id))
         val viewModel = YogaTherapyViewModel(
-            repository = YogaTherapyRepository(db),
+            repository = YogaTherapyRepository(context),
             currentUserId = ""
         )
         assertTrue(viewModel.authUiState.value is AuthUiState.Unauthenticated)

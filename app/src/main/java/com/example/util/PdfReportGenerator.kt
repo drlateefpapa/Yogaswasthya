@@ -73,8 +73,8 @@ object PdfReportGenerator {
         if (sessions.isEmpty()) return emptyList()
         val sevenDaysAgoMillis = System.currentTimeMillis() - (7L * 24L * 60L * 60L * 1000L)
         val filteredByTimestamp = sessions.filter { session ->
-            val createdMillis = session.createdAt?.toDate()?.time
-            createdMillis == null || createdMillis >= sevenDaysAgoMillis
+            val createdMillis = session.createdAtMillis
+            createdMillis <= 0L || createdMillis >= sevenDaysAgoMillis
         }
         return (if (filteredByTimestamp.isNotEmpty()) filteredByTimestamp else sessions).take(14)
     }

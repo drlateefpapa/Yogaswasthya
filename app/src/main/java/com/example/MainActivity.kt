@@ -71,7 +71,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.credentials.CredentialManager
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -92,14 +91,6 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.AuthUiState
 import com.example.ui.viewmodel.UiState
 import com.example.ui.viewmodel.YogaTherapyViewModel
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.auth
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,27 +104,18 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
-    val listener = FirebaseAuth.AuthStateListener { auth ->
-        trySend(auth.currentUser)
-    }
-    addAuthStateListener(listener)
-    awaitClose { removeAuthStateListener(listener) }
-}
-
 @Composable
-fun AppNavigation(auth: FirebaseAuth = Firebase.auth) {
+fun AppNavigation() {
     val viewModel: YogaTherapyViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) {
                     "APPLICATION_KEY missing from CreationExtras"
                 }
-                val databaseId = app.getString(R.string.firestore_database_id)
-                val db = FirebaseFirestore.getInstance(databaseId)
                 YogaTherapyViewModel(
-                    repository = YogaTherapyRepository(db),
-                    firebaseAuth = auth
+                    repository = YogaTherapyRepository(app),
+                    currentUserId = YogaTherapyRepository.DEFAULT_USER_ID,
+                    defaultDisplayName = "Aarav Sharma"
                 )
             }
         }
@@ -147,14 +129,11 @@ fun AppNavigation(auth: FirebaseAuth = Firebase.auth) {
             AuthScreen(
                 authState = AuthUiState.Unauthenticated(isLoading = true),
                 initialOnboardingData = onboardingData,
-                onAttemptSilentGoogleSignIn = { ctx, cm ->
-                    viewModel.attemptSilentGoogleSignIn(ctx, cm)
+                onSignInLocal = { displayName ->
+                    viewModel.signInLocalProfile(displayName)
                 },
-                onSignInWithGoogle = { ctx, cm ->
-                    viewModel.signInWithGoogle(ctx, cm)
-                },
-                onSignUpWithGoogle = { ctx, cm, displayName, prefilledOnboarding ->
-                    viewModel.signUpWithGoogle(ctx, cm, displayName, prefilledOnboarding)
+                onSignUpLocal = { displayName, prefilledOnboarding ->
+                    viewModel.signUpLocalProfile(displayName, prefilledOnboarding)
                 },
                 onToggleAuthMode = { isSignUp ->
                     viewModel.toggleAuthMode(isSignUp)
@@ -166,14 +145,11 @@ fun AppNavigation(auth: FirebaseAuth = Firebase.auth) {
             AuthScreen(
                 authState = state,
                 initialOnboardingData = onboardingData,
-                onAttemptSilentGoogleSignIn = { ctx, cm ->
-                    viewModel.attemptSilentGoogleSignIn(ctx, cm)
+                onSignInLocal = { displayName ->
+                    viewModel.signInLocalProfile(displayName)
                 },
-                onSignInWithGoogle = { ctx, cm ->
-                    viewModel.signInWithGoogle(ctx, cm)
-                },
-                onSignUpWithGoogle = { ctx, cm, displayName, prefilledOnboarding ->
-                    viewModel.signUpWithGoogle(ctx, cm, displayName, prefilledOnboarding)
+                onSignUpLocal = { displayName, prefilledOnboarding ->
+                    viewModel.signUpLocalProfile(displayName, prefilledOnboarding)
                 },
                 onToggleAuthMode = { isSignUp ->
                     viewModel.toggleAuthMode(isSignUp)
@@ -247,10 +223,8 @@ fun YogaSwasthyaMainScreen(
                 val app = checkNotNull(this[APPLICATION_KEY]) {
                     "APPLICATION_KEY missing from CreationExtras"
                 }
-                val databaseId = app.getString(R.string.firestore_database_id)
-                val db = FirebaseFirestore.getInstance(databaseId)
                 YogaTherapyViewModel(
-                    repository = YogaTherapyRepository(db),
+                    repository = YogaTherapyRepository(app),
                     currentUserId = currentUserId,
                     defaultDisplayName = userDisplayName
                 )
@@ -279,7 +253,6 @@ fun YogaSwasthyaMainScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val credentialManager = remember(context) { CredentialManager.create(context) }
 
     // BackHandler for Diet sub-screen or secondary tabs returning to Home
     if (showDietSubScreen) {
@@ -396,13 +369,13 @@ fun YogaSwasthyaMainScreen(
                         }
                         IconButton(
                             onClick = {
-                                viewModel.signOutUser(credentialManager)
+                                viewModel.signOutUser()
                             },
                             modifier = Modifier.testTag("sign_out_button")
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = "Sign Out"
+                                contentDescription = "Switch Profile"
                             )
                         }
                     },
@@ -594,7 +567,7 @@ fun YogaSwasthyaMainScreen(
                                         onSelectCondition = { viewModel.selectCondition(it) },
                                         onDeleteAllLogs = { viewModel.deleteAllRecoveryLogs() },
                                         onSignOut = {
-                                            viewModel.signOutUser(credentialManager)
+                                            viewModel.signOutUser()
                                         },
                                         onReopenOnboarding = { viewModel.reopenOnboarding() },
                                         onExportWeeklyPdf = { shareWithClinician ->
@@ -692,15 +665,13 @@ fun YogaSwasthyaMainScreen(
                     }
                     Spacer(modifier = Modifier.size(10.dp))
                     Text(
-                        text = "2. How to Download APK / Export ZIP in AI Studio:",
+                        text = "2. Local On-Device Mode Active:",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.size(4.dp))
                     Text(
-                        text = "• On mobile browsers, Google AI Studio hides the top-right Export/APK toolbar buttons.\n" +
-                            "• In Android Chrome, tap the ⋮ (3-dot browser menu) and enable 'Desktop site' (or open AI Studio on a laptop/PC).\n" +
-                            "• Then use the top-right AI Studio header toolbar (outside the phone preview) to Download APK or Export ZIP.",
+                        text = "• All patient profile details, daily recovery logs, and PDF/CSV exports are stored locally on your Android device with zero Firebase or Google Sign-In dependencies.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -748,7 +719,7 @@ fun YogaSwasthyaBottomNavigationBar(
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
-        modifier = modifier.testTag("yogaswasthya_bottom_nav"),
+        modifier = modifier.testTag("main_bottom_navigation"),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 4.dp
     ) {
@@ -766,19 +737,16 @@ fun YogaSwasthyaBottomNavigationBar(
                 label = {
                     Text(
                         text = destination.title,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        maxLines = 1
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
                 ),
-                modifier = Modifier.testTag("nav_item_${destination.route}")
+                modifier = Modifier.testTag("nav_tab_${destination.route}")
             )
         }
     }

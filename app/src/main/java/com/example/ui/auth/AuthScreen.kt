@@ -1,7 +1,5 @@
 package com.example.ui.auth
 
-import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,23 +8,20 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material3.Button
@@ -36,14 +31,16 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,507 +49,577 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.credentials.ClearCredentialStateRequest
-import androidx.credentials.CredentialManager
-import com.example.R
 import com.example.data.model.OnboardingProfileData
-import com.example.ui.components.SacredLotusEmblem
+import com.example.data.model.calculateBmi
+import com.example.data.model.describeBmiCategory
+import com.example.ui.screens.CoreRoutineSymptoms
 import com.example.ui.screens.PrimaryHealthGoals
 import com.example.ui.screens.deriveAgeGroupLabel
 import com.example.ui.viewmodel.AuthUiState
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-
-fun signOut(
-    context: Context,
-    credentialManager: CredentialManager,
-    onSignOutComplete: () -> Unit,
-    scope: CoroutineScope
-) {
-    Firebase.auth.signOut()
-    scope.launch {
-        try {
-            credentialManager.clearCredentialState(ClearCredentialStateRequest())
-        } catch (e: Exception) {
-            Log.e("Auth", "Failed to clear credential state", e)
-        } finally {
-            onSignOutComplete()
-        }
-    }
-}
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AuthScreen(
-    authState: AuthUiState.Unauthenticated = AuthUiState.Unauthenticated(),
+    authState: AuthUiState.Unauthenticated,
     initialOnboardingData: OnboardingProfileData = OnboardingProfileData(),
-    onAttemptSilentGoogleSignIn: (Context, CredentialManager) -> Unit = { _, _ -> },
-    onSignInWithGoogle: (Context, CredentialManager) -> Unit = { _, _ -> },
-    onSignUpWithGoogle: (Context, CredentialManager, String, OnboardingProfileData) -> Unit = { _, _, _, _ -> },
-    onToggleAuthMode: (isSignUp: Boolean) -> Unit = {},
-    onAuthSuccess: () -> Unit = {}
+    onSignInLocal: (displayName: String) -> Unit = {},
+    onSignUpLocal: (displayName: String, onboardingData: OnboardingProfileData) -> Unit = { _, _ -> },
+    onToggleAuthMode: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val credentialManager = remember(context) { CredentialManager.create(context) }
-
-    var isSignUpMode by rememberSaveable(authState.isSignUpMode) {
-        mutableStateOf(authState.isSignUpMode)
-    }
-    var fullName by rememberSaveable { mutableStateOf("") }
+    var fullName by rememberSaveable { mutableStateOf(initialOnboardingData.fullName) }
     var ageInput by rememberSaveable { mutableStateOf(initialOnboardingData.age.toString()) }
-    var selectedAge by rememberSaveable { mutableIntStateOf(initialOnboardingData.age.coerceIn(18, 95)) }
+    var selectedAge by rememberSaveable { mutableIntStateOf(initialOnboardingData.age.coerceIn(18, 90)) }
     var heightInput by rememberSaveable { mutableStateOf(initialOnboardingData.heightCm.toString()) }
     var weightInput by rememberSaveable { mutableStateOf(initialOnboardingData.weightKg.toString()) }
-    var knownDiseaseInput by rememberSaveable { mutableStateOf(initialOnboardingData.knownDiseasesOrMedications) }
+    var knownDiseasesInput by rememberSaveable { mutableStateOf(initialOnboardingData.knownDiseasesOrMedications) }
     var emailInput by rememberSaveable { mutableStateOf(initialOnboardingData.emailId) }
     var phoneInput by rememberSaveable { mutableStateOf(initialOnboardingData.phoneNumber) }
-    var selectedGoalTitle by rememberSaveable { mutableStateOf(initialOnboardingData.primaryHealthGoal) }
-    var selectedConditionId by rememberSaveable { mutableStateOf(initialOnboardingData.primaryConditionId) }
+    var selectedGoal by rememberSaveable { mutableStateOf(initialOnboardingData.primaryHealthGoal) }
+    var selectedSymptoms by rememberSaveable { mutableStateOf(initialOnboardingData.selectedSymptoms) }
 
-    LaunchedEffect(Unit) {
-        onAttemptSilentGoogleSignIn(context, credentialManager)
+    val parsedHeightCm = heightInput.toIntOrNull()?.coerceIn(50, 260) ?: initialOnboardingData.heightCm
+    val parsedWeightKg = weightInput.toIntOrNull()?.coerceIn(15, 300) ?: initialOnboardingData.weightKg
+    val calculatedBmi = remember(parsedHeightCm, parsedWeightKg) {
+        calculateBmi(parsedHeightCm, parsedWeightKg)
+    }
+    val bmiCategory = remember(calculatedBmi) {
+        describeBmiCategory(calculatedBmi)
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF122C20),
-                        Color(0xFF1D4632),
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .testTag("auth_screen")
-    ) {
-        Column(
+    val backgroundBrush = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF0E291D),
+            Color(0xFF173D2C),
+            Color(0xFF1D4935)
+        )
+    )
+
+    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-                .widthIn(max = 560.dp)
-                .align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(backgroundBrush)
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center
         ) {
-            SacredLotusEmblem(
-                modifier = Modifier.size(104.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Surface(
-                color = Color(0x33D4A359),
-                shape = RoundedCornerShape(50),
-                modifier = Modifier.padding(bottom = 10.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFFBF8F3).copy(alpha = 0.12f),
+                    modifier = Modifier.size(110.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Spa,
-                        contentDescription = null,
-                        tint = Color(0xFFF3C878),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "YOGA THERAPY & RECOVERY COMPANION",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFF8E8C8),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Text(
-                text = stringResource(id = R.string.app_name),
-                style = MaterialTheme.typography.displayMedium,
-                color = Color(0xFFFBF8F3),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Disease-oriented Asanas, screened Pranayama, Dhyana, Indian dietary guidance & clinician-ready recovery tracking.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFD9EDE2),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Sign-In vs Sign-Up Mode Switcher
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
-                    ) {
-                        FilterChip(
-                            selected = !isSignUpMode,
-                            onClick = {
-                                isSignUpMode = false
-                                onToggleAuthMode(false)
-                            },
-                            label = {
-                                Text(
-                                    text = "Sign In",
-                                    fontWeight = if (!isSignUpMode) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            modifier = Modifier.testTag("auth_mode_sign_in_chip")
-                        )
-                        FilterChip(
-                            selected = isSignUpMode,
-                            onClick = {
-                                isSignUpMode = true
-                                onToggleAuthMode(true)
-                            },
-                            label = {
-                                Text(
-                                    text = "Create Account (Sign Up)",
-                                    fontWeight = if (isSignUpMode) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            modifier = Modifier.testTag("auth_mode_sign_up_chip")
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Spa,
+                            contentDescription = null,
+                            tint = Color(0xFFE5A93C),
+                            modifier = Modifier.size(56.dp)
                         )
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    if (isSignUpMode) {
-                        Text(
-                            text = "New Practitioner Sign-Up & Onboarding",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                Surface(
+                    color = Color(0xFFE5A93C).copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Spa,
+                            contentDescription = null,
+                            tint = Color(0xFFE5A93C),
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Set your name and initial focus below, then authenticate with Google to complete your 3-step symptom & routine onboarding.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                            text = "YOGA THERAPY & RECOVERY COMPANION",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFBF8F3),
+                            fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "YogaSwasthya",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color(0xFFFBF8F3),
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Disease-oriented Asanas, screened Pranayama, Dhyana, Indian dietary guidance & clinician-ready recovery tracking.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFFD5E6DD),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF132F22).copy(alpha = 0.94f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                        ) {
+                            FilterChip(
+                                selected = !authState.isSignUpMode,
+                                onClick = { onToggleAuthMode(false) },
+                                label = { Text("Quick Start") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF8CD1B3),
+                                    selectedLabelColor = Color(0xFF0E291D),
+                                    labelColor = Color(0xFFD5E6DD)
+                                ),
+                                modifier = Modifier.testTag("auth_mode_signin_chip")
+                            )
+                            FilterChip(
+                                selected = authState.isSignUpMode,
+                                onClick = { onToggleAuthMode(true) },
+                                label = { Text("Custom Profile Setup") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color(0xFF8CD1B3),
+                                    selectedLabelColor = Color(0xFF0E291D),
+                                    labelColor = Color(0xFFD5E6DD)
+                                ),
+                                modifier = Modifier.testTag("auth_mode_signup_chip")
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
-                            value = fullName,
-                            onValueChange = { fullName = it },
-                            label = { Text("Patient / Practitioner Name") },
-                            leadingIcon = {
-                                Icon(imageVector = Icons.Default.Person, contentDescription = null)
+                        Text(
+                            text = if (authState.isSignUpMode) {
+                                "Create Your Personalized Therapy Profile"
+                            } else {
+                                "Welcome to YogaSwasthya"
                             },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("auth_name_input")
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = ageInput,
-                                onValueChange = { raw ->
-                                    val digits = raw.filter { it.isDigit() }.take(2)
-                                    ageInput = digits
-                                    digits.toIntOrNull()?.let { parsed ->
-                                        selectedAge = parsed.coerceIn(18, 95)
-                                    }
-                                },
-                                label = { Text("Age (yrs)") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("auth_signup_age_input")
-                            )
-
-                            OutlinedTextField(
-                                value = heightInput,
-                                onValueChange = { raw ->
-                                    heightInput = raw.filter { it.isDigit() }.take(3)
-                                },
-                                label = { Text("Height (cm)") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("auth_signup_height_input")
-                            )
-
-                            OutlinedTextField(
-                                value = weightInput,
-                                onValueChange = { raw ->
-                                    weightInput = raw.filter { it.isDigit() }.take(3)
-                                },
-                                label = { Text("Weight (kg)") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("auth_signup_weight_input")
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = knownDiseaseInput,
-                            onValueChange = { knownDiseaseInput = it.take(300) },
-                            label = { Text("Known Disease or Medication") },
-                            placeholder = { Text("e.g., Hypertension, Diabetes, Vitamin D3") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("auth_signup_disease_input")
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = emailInput,
-                                onValueChange = { emailInput = it.take(120) },
-                                label = { Text("Mail ID") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("auth_signup_email_input")
-                            )
-
-                            OutlinedTextField(
-                                value = phoneInput,
-                                onValueChange = { raw ->
-                                    phoneInput = raw.filter { it.isDigit() || it in "+- ()" }.take(25)
-                                },
-                                label = { Text("Phone No.") },
-                                singleLine = true,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("auth_signup_phone_input")
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Flag,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Primary Health Goal (customizable in onboarding):",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            PrimaryHealthGoals.take(4).forEach { goal ->
-                                val selected = selectedGoalTitle == goal.title
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = {
-                                        selectedGoalTitle = goal.title
-                                        selectedConditionId = goal.recommendedConditionId
-                                    },
-                                    label = {
-                                        Text(
-                                            text = goal.title,
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    },
-                                    modifier = Modifier.testTag("signup_goal_chip_${goal.id}")
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-                    } else {
-                        Text(
-                            text = "Welcome Back to YogaSwasthya",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFFFBF8F3),
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Sign in with your Google account to restore your personalized therapy plan, symptom logs, and clinician progress reports.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
-                    }
 
-                    if (authState.errorMessage != null) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = RoundedCornerShape(12.dp),
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = if (authState.isSignUpMode) {
+                                "Enter your personal details, body metrics, known disease/medication, and health goal to customize your local recovery plan."
+                            } else {
+                                "Continue directly to your personalized yoga therapy plan, symptom logs, and clinician PDF reports stored locally on your device."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB8D1C4),
+                            textAlign = TextAlign.Center
+                        )
+
+                        if (authState.isSignUpMode) {
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            OutlinedTextField(
+                                value = fullName,
+                                onValueChange = { fullName = it.take(80) },
+                                label = { Text("Your Full Name") },
+                                placeholder = { Text("e.g., Aarav Sharma") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color(0xFFFBF8F3),
+                                    unfocusedTextColor = Color(0xFFFBF8F3),
+                                    focusedBorderColor = Color(0xFF8CD1B3),
+                                    unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                    focusedLabelColor = Color(0xFF8CD1B3),
+                                    unfocusedLabelColor = Color(0xFFB8D1C4)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("signup_name_input")
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = ageInput,
+                                    onValueChange = { raw ->
+                                        val digits = raw.filter { it.isDigit() }.take(3)
+                                        ageInput = digits
+                                        digits.toIntOrNull()?.let { parsed ->
+                                            selectedAge = parsed.coerceIn(18, 90)
+                                        }
+                                    },
+                                    label = { Text("Age (yrs)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFFBF8F3),
+                                        unfocusedTextColor = Color(0xFFFBF8F3),
+                                        focusedBorderColor = Color(0xFF8CD1B3),
+                                        unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                        focusedLabelColor = Color(0xFF8CD1B3),
+                                        unfocusedLabelColor = Color(0xFFB8D1C4)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("signup_age_input")
+                                )
+
+                                OutlinedTextField(
+                                    value = heightInput,
+                                    onValueChange = { raw ->
+                                        heightInput = raw.filter { it.isDigit() }.take(3)
+                                    },
+                                    label = { Text("Height (cm)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFFBF8F3),
+                                        unfocusedTextColor = Color(0xFFFBF8F3),
+                                        focusedBorderColor = Color(0xFF8CD1B3),
+                                        unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                        focusedLabelColor = Color(0xFF8CD1B3),
+                                        unfocusedLabelColor = Color(0xFFB8D1C4)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("signup_height_input")
+                                )
+
+                                OutlinedTextField(
+                                    value = weightInput,
+                                    onValueChange = { raw ->
+                                        weightInput = raw.filter { it.isDigit() }.take(3)
+                                    },
+                                    label = { Text("Weight (kg)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFFBF8F3),
+                                        unfocusedTextColor = Color(0xFFFBF8F3),
+                                        focusedBorderColor = Color(0xFF8CD1B3),
+                                        unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                        focusedLabelColor = Color(0xFF8CD1B3),
+                                        unfocusedLabelColor = Color(0xFFB8D1C4)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("signup_weight_input")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = String.format(
+                                    Locale.US,
+                                    "Age: %d yrs (%s) • BMI: %.1f kg/m² (%s)",
+                                    selectedAge,
+                                    deriveAgeGroupLabel(selectedAge),
+                                    calculatedBmi,
+                                    bmiCategory
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF8CD1B3),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+
+                            Slider(
+                                value = selectedAge.toFloat(),
+                                onValueChange = {
+                                    selectedAge = it.toInt()
+                                    ageInput = selectedAge.toString()
+                                },
+                                valueRange = 18f..85f,
+                                modifier = Modifier.testTag("signup_age_slider")
+                            )
+
+                            OutlinedTextField(
+                                value = knownDiseasesInput,
+                                onValueChange = { knownDiseasesInput = it.take(300) },
+                                label = { Text("Known Disease or Medication") },
+                                placeholder = { Text("e.g., Cervical Spondylitis, Hypertension, Vitamin D3") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color(0xFFFBF8F3),
+                                    unfocusedTextColor = Color(0xFFFBF8F3),
+                                    focusedBorderColor = Color(0xFF8CD1B3),
+                                    unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                    focusedLabelColor = Color(0xFF8CD1B3),
+                                    unfocusedLabelColor = Color(0xFFB8D1C4)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("signup_known_disease_input")
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = emailInput,
+                                    onValueChange = { emailInput = it.take(120) },
+                                    label = { Text("Mail ID (Email)") },
+                                    placeholder = { Text("name@example.com") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFFBF8F3),
+                                        unfocusedTextColor = Color(0xFFFBF8F3),
+                                        focusedBorderColor = Color(0xFF8CD1B3),
+                                        unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                        focusedLabelColor = Color(0xFF8CD1B3),
+                                        unfocusedLabelColor = Color(0xFFB8D1C4)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("signup_email_input")
+                                )
+
+                                OutlinedTextField(
+                                    value = phoneInput,
+                                    onValueChange = { raw ->
+                                        phoneInput = raw.filter { it.isDigit() || it in "+- ()" }.take(25)
+                                    },
+                                    label = { Text("Phone No.") },
+                                    placeholder = { Text("+91 98765 43210") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFFFBF8F3),
+                                        unfocusedTextColor = Color(0xFFFBF8F3),
+                                        focusedBorderColor = Color(0xFF8CD1B3),
+                                        unfocusedBorderColor = Color(0xFF8CD1B3).copy(alpha = 0.5f),
+                                        focusedLabelColor = Color(0xFF8CD1B3),
+                                        unfocusedLabelColor = Color(0xFFB8D1C4)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("signup_phone_input")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Primary Health Goal",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFFFBF8F3),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                PrimaryHealthGoals.take(5).forEach { goal ->
+                                    FilterChip(
+                                        selected = selectedGoal == goal.title,
+                                        onClick = { selectedGoal = goal.title },
+                                        label = {
+                                            Text(
+                                                text = goal.title,
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFFE5A93C),
+                                            selectedLabelColor = Color(0xFF0E291D),
+                                            labelColor = Color(0xFFD5E6DD)
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Current Symptoms (Select any that apply)",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFFFBF8F3),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CoreRoutineSymptoms.take(6).forEach { symptom ->
+                                    val isSelected = symptom in selectedSymptoms
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedSymptoms = if (isSelected) {
+                                                selectedSymptoms - symptom
+                                            } else {
+                                                selectedSymptoms + symptom
+                                            }
+                                        },
+                                        label = {
+                                            Text(
+                                                text = symptom,
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF8CD1B3),
+                                            selectedLabelColor = Color(0xFF0E291D),
+                                            labelColor = Color(0xFFD5E6DD)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Button(
+                            onClick = {
+                                if (authState.isSignUpMode) {
+                                    val matchedConditionId = PrimaryHealthGoals
+                                        .firstOrNull { it.title == selectedGoal }
+                                        ?.recommendedConditionId
+                                        ?: initialOnboardingData.primaryConditionId
+                                    val prefilled = initialOnboardingData.copy(
+                                        fullName = fullName.trim().ifBlank { "Practitioner" },
+                                        age = selectedAge,
+                                        ageGroup = deriveAgeGroupLabel(selectedAge),
+                                        heightCm = parsedHeightCm,
+                                        weightKg = parsedWeightKg,
+                                        knownDiseasesOrMedications = knownDiseasesInput.trim().ifBlank { "None Reported" },
+                                        emailId = emailInput.trim(),
+                                        phoneNumber = phoneInput.trim(),
+                                        primaryHealthGoal = selectedGoal,
+                                        primaryConditionId = matchedConditionId,
+                                        selectedSymptoms = selectedSymptoms
+                                    )
+                                    onSignUpLocal(fullName, prefilled)
+                                } else {
+                                    onSignInLocal(fullName)
+                                }
+                            },
+                            enabled = !authState.isLoading,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 12.dp)
-                                .testTag("auth_error_banner")
-                        ) {
-                            Text(
-                                text = authState.errorMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(12.dp),
-                                textAlign = TextAlign.Center
+                                .height(54.dp)
+                                .testTag("google_sign_in_button"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF8CD1B3),
+                                contentColor = Color(0xFF0E291D)
                             )
-                        }
-                    }
-
-                    // Primary Google Sign-In / Sign-Up Button
-                    Button(
-                        onClick = {
-                            if (isSignUpMode) {
-                                val prefilledOnboarding = initialOnboardingData.copy(
-                                    fullName = fullName.trim().ifBlank { initialOnboardingData.fullName },
-                                    age = selectedAge,
-                                    ageGroup = deriveAgeGroupLabel(selectedAge),
-                                    heightCm = heightInput.toIntOrNull()?.coerceIn(50, 260) ?: initialOnboardingData.heightCm,
-                                    weightKg = weightInput.toIntOrNull()?.coerceIn(15, 300) ?: initialOnboardingData.weightKg,
-                                    knownDiseasesOrMedications = knownDiseaseInput.trim().ifBlank { "None Reported" },
-                                    emailId = emailInput.trim(),
-                                    phoneNumber = phoneInput.trim(),
-                                    primaryHealthGoal = selectedGoalTitle,
-                                    primaryConditionId = selectedConditionId,
-                                    isOnboardingCompleted = false
+                        ) {
+                            if (authState.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = Color(0xFF0E291D)
                                 )
-                                onSignUpWithGoogle(
-                                    context,
-                                    credentialManager,
-                                    fullName,
-                                    prefilledOnboarding
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Opening YogaSwasthya...",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
                                 )
                             } else {
-                                onSignInWithGoogle(context, credentialManager)
+                                Icon(
+                                    imageVector = if (authState.isSignUpMode) {
+                                        Icons.Default.PersonAdd
+                                    } else {
+                                        Icons.Default.SelfImprovement
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = if (authState.isSignUpMode) {
+                                        "Save Profile & Continue"
+                                    } else {
+                                        "Continue to YogaSwasthya"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                            onAuthSuccess()
-                        },
-                        enabled = !authState.isLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .testTag("google_sign_in_button"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        if (authState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.SelfImprovement,
-                                contentDescription = null,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isSignUpMode)
-                                    "Sign up with Google & Start Onboarding"
-                                else
-                                    "Sign in with Google",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    val highlights = listOf(
-                        "Personalizes your routine by Age, Primary Health Goal & Symptoms",
-                        "18 clinical & preventive programs with Chair & Wall modifications",
-                        "Cloud-synced daily symptom logs & clinician PDF reports"
-                    )
-
-                    highlights.forEach { point ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = point,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            BenefitRow("Personalizes your routine by Age, Body Metrics, Health Goal & Symptoms")
+                            BenefitRow("18 clinical & preventive programs with Chair & Wall modifications")
+                            BenefitRow("100% offline-ready daily symptom logs & clinician PDF/CSV exports")
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BenefitRow(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = Color(0xFF8CD1B3),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFFD5E6DD)
+        )
     }
 }

@@ -1,14 +1,7 @@
 package com.example.data.model
 
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.DocumentId
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.IgnoreExtraProperties
-import com.google.firebase.firestore.ServerTimestamp
-
-@IgnoreExtraProperties
 data class PatientProfile(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val displayName: String = "",
     val age: Int = 42,
@@ -24,10 +17,11 @@ data class PatientProfile(
     val baselineStressScore: Int = 6,
     val dietaryPreference: String = "Vegetarian • Pan-Indian Sattvic",
     val dailyGoalMinutes: Int = 30,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val updatedAtMillis: Long = System.currentTimeMillis()
 ) {
     fun toCreateMap(uid: String): Map<String, Any> {
+        val now = System.currentTimeMillis()
         return mapOf(
             "userId" to uid,
             "displayName" to displayName.ifBlank { "Yoga Practitioner" }.take(80),
@@ -44,8 +38,8 @@ data class PatientProfile(
             "baselineStressScore" to baselineStressScore.coerceIn(0, 10),
             "dietaryPreference" to dietaryPreference.ifBlank { "Sattvic Anti-Inflammatory" }.take(50),
             "dailyGoalMinutes" to dailyGoalMinutes.coerceIn(5, 180),
-            "createdAt" to (createdAt ?: FieldValue.serverTimestamp()),
-            "updatedAt" to FieldValue.serverTimestamp()
+            "createdAtMillis" to createdAtMillis,
+            "updatedAtMillis" to now
         )
     }
 
@@ -65,14 +59,13 @@ data class PatientProfile(
             "baselineStressScore" to baselineStressScore.coerceIn(0, 10),
             "dietaryPreference" to dietaryPreference.ifBlank { "Sattvic Anti-Inflammatory" }.take(50),
             "dailyGoalMinutes" to dailyGoalMinutes.coerceIn(5, 180),
-            "updatedAt" to FieldValue.serverTimestamp()
+            "updatedAtMillis" to System.currentTimeMillis()
         )
     }
 }
 
-@IgnoreExtraProperties
 data class RecoveryLog(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val conditionId: String = "",
     val dateLabel: String = "",
@@ -88,10 +81,11 @@ data class RecoveryLog(
     val dietAdherenceScore: Int = 80,
     val waterIntakeGlasses: Int = 8,
     val notes: String? = null,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val updatedAtMillis: Long = System.currentTimeMillis()
 ) {
     fun toCreateMap(uid: String): Map<String, Any> {
+        val now = System.currentTimeMillis()
         val base = mutableMapOf<String, Any>(
             "userId" to uid,
             "conditionId" to conditionId.ifBlank { "cervical_lumbar_spondylitis" }.take(64),
@@ -107,8 +101,8 @@ data class RecoveryLog(
             "completedPractices" to completedPractices.take(30).map { it.take(100) },
             "dietAdherenceScore" to dietAdherenceScore.coerceIn(0, 100),
             "waterIntakeGlasses" to waterIntakeGlasses.coerceIn(0, 25),
-            "createdAt" to (createdAt ?: FieldValue.serverTimestamp()),
-            "updatedAt" to FieldValue.serverTimestamp()
+            "createdAtMillis" to createdAtMillis,
+            "updatedAtMillis" to now
         )
         if (!notes.isNullOrBlank()) {
             base["notes"] = notes.take(500)
@@ -117,9 +111,8 @@ data class RecoveryLog(
     }
 }
 
-@IgnoreExtraProperties
 data class PracticeSession(
-    @DocumentId val id: String = "",
+    val id: String = "",
     val userId: String = "",
     val conditionId: String = "",
     val practiceId: String = "",
@@ -127,8 +120,8 @@ data class PracticeSession(
     val category: String = "Asana",
     val durationMinutes: Int = 10,
     val reliefRating: Int = 5,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val updatedAtMillis: Long = System.currentTimeMillis()
 ) {
     fun toCreateMap(uid: String): Map<String, Any> {
         val validCategory = if (category in listOf("Asana", "Pranayama", "Dhyana")) category else "Asana"
@@ -140,8 +133,8 @@ data class PracticeSession(
             "category" to validCategory,
             "durationMinutes" to durationMinutes.coerceIn(1, 180),
             "reliefRating" to reliefRating.coerceIn(1, 5),
-            "createdAt" to (createdAt ?: FieldValue.serverTimestamp()),
-            "updatedAt" to FieldValue.serverTimestamp()
+            "createdAtMillis" to createdAtMillis,
+            "updatedAtMillis" to System.currentTimeMillis()
         )
     }
 }
